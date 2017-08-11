@@ -115,10 +115,25 @@ gulp.task('images-sizes', function (done) {
 gulp.task('image-sequence', shell.task(sequenceShellTask));
 
 gulp.task('resize', function () {
-    return gulp.src('test.js')
+    var srcPath = '',
+        async = false;
+
+    return gulp.src('*')
         .pipe(prompt.prompt({
             type: 'input',
-            name: 'first',
-            message: 'First question?'
-        }));
+            name: 'imagePath',
+            message: 'Images path?'
+        }, function (res) {
+            srcPath = res.imagePath;
+        }))
+        .pipe(prompt.prompt({
+            default: true,
+            name: 'async',
+            message: 'asynchronous?'
+        }, function (res) {
+            async = res.async === 'true' || res.async === true ? true : false;
+            console.log('srcPath ==>', srcPath);
+            console.log('async ==>', async);
+        }))
+    ;
 });
