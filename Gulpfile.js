@@ -1,130 +1,69 @@
 'use strict';
 
-var SRC = 'F:/Projects/boda-dani-y-judith/src/globals/images/bodorrio/*.JPG';
-var FILE_NAME = 'dani_y_judith.';
-
 var gulp = require('gulp');
-var fs = require('fs');
 var globule = require('globule');
 var imageResize = require('gulp-image-resize');
-var _ = require('underscore');
-var rename = require("gulp-rename");
-var shell = require('gulp-shell')
-var range = _.range(4085, 4445);
-var sequenceShellTask = [];
-var sizeOf = require('image-size');
+var _ = require('lodash');
+var through = require('through2');
 var prompt = require('gulp-prompt');
 
-var ensureWrite = function (filePath, content) {
-    var slash = '/',
-        folders = filePath.split(slash),
-        path = folders.shift();
+var resizeOpts = {},
+    srcPath = '',
+    destPath = '',
+    async;
 
-    _.each(folders, function (folder) {
-        if (!fs.existsSync(path)) {
-            fs.mkdirSync(path);
-        }
-        path += slash + folder;
-    });
-
-    fs.writeFileSync(path, content);
-};
-
-var pad = function (n, width, z) {
-    z = z || '0';
-    n = n + '';
-    return n.length >= width ? n : new Array(width - n.length + 1).join(z) + n;
-}
-
-var gulpTaskBuilder = function (destFolder, srcFolder, options) {
-    _.each(range, function (numberFile) {
-        var taskName = 'image-' + destFolder + '-' + numberFile;
-
-        sequenceShellTask.push('gulp ' + taskName);
-
-        gulp.task(taskName, function (cb) {
-            gulp.src('src/globals/images/' + srcFolder + '/*' + pad(numberFile, 4) + '.jpg')
-                 .pipe(imageResize(_.extend({
-                     imageMagick: true,
-                     upscale: false
-                 }, options)))
-             .pipe(gulp.dest('src/globals/images/' + destFolder))
-             .on('end', function () {
-                 cb();
-             });
-        });
-    });
-};
-
-gulp.task('images-clone', function () {
-    gulp.src(SRC)
-    .pipe(rename(function (path) {
-        console.log('Copying image ==>', path.basename);
-        path.basename = path.basename.replace('DSC0', FILE_NAME);
-        path.extname = path.extname.toLowerCase();
-        return path;
-    }))
-    .pipe(gulp.dest('src/globals/images/print'));
-});
-
-gulpTaskBuilder('xlarge', 'print', {
-    width: 1920
-});
-
-gulpTaskBuilder('large', 'xlarge', {
-    width: 1400
-});
-
-gulpTaskBuilder('medium', 'large', {
-    width: 700
-});
-
-gulpTaskBuilder('thumbs', 'medium', {
-    width: 230,
-    height: 200,
-    quality: 0.8,
-    crop: true
-});
-
-gulp.task('images-sizes', function (done) {
-    var images = globule.find('src/globals/images/medium/*.jpg'),
-        portrait = [],
-        landScape = [];
-
-    _.each(images, function (imgPath) {
-        var dimensions = sizeOf(imgPath),
-            fileNumber = parseInt(_.last(imgPath.split('/')).replace(FILE_NAME, '').replace('.jpg', ''), 10);
-
-        if (dimensions.width > dimensions.height) {
-            landScape.push(fileNumber);
-        } else {
-            portrait.push(fileNumber);
-        }
-    });
-
-    var content = JSON.stringify({
-        landScape: landScape,
-        portrait: portrait
-    });
-
-    ensureWrite("./dist/build/sizes.json", content);
-
-    done()
-});
-
-gulp.task('image-sequence', shell.task(sequenceShellTask));
-
-gulp.task('resize', function () {
-    var srcPath = '',
-        async = false;
-
+gulp.task('resize-config', function (done) {
     return gulp.src('*')
         .pipe(prompt.prompt({
-            type: 'input',
             name: 'imagePath',
-            message: 'Images path?'
+            message: 'Images path? allow glob'
         }, function (res) {
-            srcPath = res.imagePath;
+            srcPath = globule.find(res.imagePath);
+            if (!srcPath.length) {
+                throw new Error('Nothing to resize');
+            }            
+        }))
+        .pipe(prompt.prompt({
+            default: 'resized',
+            name: 'dest',
+            message: 'Images destination path?'
+        }, function (res) {
+            destPath = res.dest;
+       
+        }))
+        .pipe(prompt.prompt({
+            default: 'auto',
+            name: 'width',
+            message: 'width?'
+        }, function (res) {
+            if (res.width !== 'auto') {
+                resizeOpts.width = parseInt(res.width, 10);
+            }            
+        }))
+          .pipe(prompt.prompt({
+              default: 'auto',
+              name: 'height',
+              message: 'height?'
+          }, function (res) {
+              if (res.height !== 'auto') {
+                  resizeOpts.height = parseInt(res.height, 10);
+              }
+          }))
+         .pipe(prompt.prompt({
+             default: false,
+             name: 'crop',
+             message: 'crop images?'
+         }, function (res) {
+             if(res.crop === 'true' || res.crop === true){
+                 resizeOpts.height = true;
+             }
+         }))
+        .pipe(prompt.prompt({
+            default: 1,
+            name: 'quality',
+            message: 'quality, between 0 and 1 inclusive?'
+        }, function (res) {
+            resizeOpts.quality = parseFloat(res.quality);
         }))
         .pipe(prompt.prompt({
             default: true,
@@ -132,8 +71,19 @@ gulp.task('resize', function () {
             message: 'asynchronous?'
         }, function (res) {
             async = res.async === 'true' || res.async === true ? true : false;
-            console.log('srcPath ==>', srcPath);
-            console.log('async ==>', async);
-        }))
-    ;
+        }));
+});
+
+gulp.task('resize', ['resize-config'], function () {
+    console.log('resizing ==>', srcPath.length, resizeOpts);
+    return gulp.src(srcPath)
+       .pipe(through.obj(function (chunk, enc, cb) {
+           console.log('resizing... ', chunk.path) // this should log now
+           cb(null, chunk)
+       }))
+       .pipe(imageResize(_.extend({
+           imageMagick: true,
+           upscale: false
+       }, resizeOpts)))
+       .pipe(gulp.dest(destPath));
 });
