@@ -9,8 +9,7 @@ var prompt = require('gulp-prompt');
 
 var resizeOpts = {},
     srcPath = '',
-    destPath = '',
-    async;
+    destPath = '';
 
 gulp.task('resize-config', function (done) {
     return gulp.src('*')
@@ -64,21 +63,14 @@ gulp.task('resize-config', function (done) {
             message: 'quality, between 0 and 1 inclusive?'
         }, function (res) {
             resizeOpts.quality = parseFloat(res.quality);
-        }))
-        .pipe(prompt.prompt({
-            default: true,
-            name: 'async',
-            message: 'asynchronous?'
-        }, function (res) {
-            async = res.async === 'true' || res.async === true ? true : false;
         }));
 });
 
 gulp.task('resize', ['resize-config'], function () {
-    console.log('resizing ==>', srcPath.length, resizeOpts);
+    console.log('resize options ==>', srcPath.length, resizeOpts);
     return gulp.src(srcPath)
        .pipe(through.obj(function (chunk, enc, cb) {
-           console.log('resizing... ', chunk.path) // this should log now
+           console.log('resizing... ', chunk.path)
            cb(null, chunk)
        }))
        .pipe(imageResize(_.extend({
