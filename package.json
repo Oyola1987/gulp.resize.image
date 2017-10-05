@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "description": "Task based on gulp to resize images",
   "scripts": {
+    "start": "npm i && gulp resize",
     "resize": "gulp resize"
   },
   "author": "",
