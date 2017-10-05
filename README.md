@@ -1,5 +1,5 @@
 # Gulp resize image
- Task width prompt based on gulp to resize images
+ Task with prompt based on gulp to resize images
 
 #### Installation
 
